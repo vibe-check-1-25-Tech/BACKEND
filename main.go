@@ -42,7 +42,7 @@ func handleCreateLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Валидация (твоя работа как бэкенда)
+	// Валидация
 	if entry.Score < 1 || entry.Score > 5 {
 		http.Error(w, "Оценка должна быть от 1 до 5", http.StatusBadRequest)
 		return
