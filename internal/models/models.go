@@ -10,3 +10,9 @@ type MoodLog struct {
 	Note      string    `json:"note"`      // Текст заметки
 	Timestamp time.Time `json:"timestamp"` // Время записи
 }
+
+// HealthCheck для проверки связи
+type HealthCheck struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
