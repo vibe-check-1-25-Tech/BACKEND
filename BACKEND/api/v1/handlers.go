@@ -1,10 +1,11 @@
-package handlers
+package api
 
 import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"net/http"
+
 	"vibe-check-backend/internal/models"
 	"vibe-check-backend/internal/repository"
 )
@@ -26,7 +27,11 @@ func (e *Env) CreateMoodHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (e *Env) GetMoodsHandler(w http.ResponseWriter, r *http.Request) {
-	logs, _ := e.Repo.GetAllMoods("", "")
+	logs, err := e.Repo.GetAllMoods("", "")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(logs)
 }
@@ -34,19 +39,31 @@ func (e *Env) GetMoodsHandler(w http.ResponseWriter, r *http.Request) {
 // --- Аналитика и статистика ---
 
 func (e *Env) GetStatsHandler(w http.ResponseWriter, r *http.Request) {
-	stats, _ := e.Repo.GetMoodStats()
+	stats, err := e.Repo.GetMoodStats()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
 }
 
 func (e *Env) GetTopTagsHandler(w http.ResponseWriter, r *http.Request) {
-	tags, _ := e.Repo.GetTopTags()
+	tags, err := e.Repo.GetTopTags()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tags)
 }
 
 func (e *Env) GetTeamStatsHandler(w http.ResponseWriter, r *http.Request) {
-	avg, _ := e.Repo.GetTeamAverage(1)
+	avg, err := e.Repo.GetTeamAverage(1)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]float64{"average": avg})
 }
@@ -59,8 +76,8 @@ func (e *Env) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	ok, _ := e.Repo.CheckPin(c.Email, c.Pin)
-	if !ok {
+	ok, err := e.Repo.CheckPin(c.Email, c.Pin)
+	if err != nil || !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -88,7 +105,11 @@ func (e *Env) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 
 func (e *Env) SearchHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	logs, _ := e.Repo.SearchNotes(q)
+	logs, err := e.Repo.SearchNotes(q)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(logs)
 }
@@ -134,7 +155,6 @@ func (e *Env) ExportHandler(w http.ResponseWriter, r *http.Request) {
 	writer := csv.NewWriter(w)
 	defer writer.Flush()
 
-	// Оставим только Оценку и Заметку, если с Датой проблемы
 	writer.Write([]string{"Оценка", "Заметка"})
 
 	for _, l := range logs {
@@ -152,6 +172,7 @@ func (e *Env) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	w.Write([]byte("404 - Страница не найдена"))
 }
+
 func (e *Env) PingHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"status": "pong"}`))

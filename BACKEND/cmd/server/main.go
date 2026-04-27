@@ -6,13 +6,15 @@ import (
 	"log"
 	"net/http"
 	"time"
-	"vibe-check-backend/internal/handlers"
+
+	handlers "vibe-check-backend/api/v1"
 	"vibe-check-backend/internal/repository"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 func main() {
+
 	db, err := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/vibe_check?parseTime=true")
 	if err != nil {
 		log.Fatal(err)
@@ -20,9 +22,10 @@ func main() {
 	defer db.Close()
 
 	repo := repository.NewMoodRepository(db)
+	// Теперь env берется из пакета v1 (которому мы дали имя handlers выше)
 	env := &handlers.Env{Repo: repo}
 
-	// Регистрируем маршруты
+	// Маршруты остаются без изменений, так как мы сохранили имя 'handlers' в импорте
 	http.HandleFunc("/api/register", corsMiddleware(env.RegisterHandler))
 	http.HandleFunc("/api/login", corsMiddleware(env.LoginHandler))
 	http.HandleFunc("/api/logs", corsMiddleware(env.GetMoodsHandler))
@@ -37,7 +40,7 @@ func main() {
 	http.HandleFunc("/", corsMiddleware(env.NotFoundHandler))
 	http.HandleFunc("/api/ping", corsMiddleware(env.PingHandler))
 
-	// Фоновый процесс для уведомлений
+	// Фоновый процесс
 	go func() {
 		for {
 			currentTime := time.Now().Format("15:04")
