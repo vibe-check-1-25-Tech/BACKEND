@@ -15,7 +15,7 @@ import (
 
 func main() {
 
-	db, err := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/vibe_check?parseTime=true")
+	db, err := sql.Open("mysql", "root:rootroot@tcp(127.0.0.1:3307)/vibe_check?parseTime=true")
 	if err != nil {
 		log.Fatal(err)
 	}
