@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	// У тебя папка api в корне, а внутри v1
@@ -14,11 +15,37 @@ import (
 	"vibe-check-backend/internal/repository"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	// 1. Подключение к базе данных mood_tracker на порту 3307
-	dsn := "root:rootroot@tcp(127.0.0.1:3307)/mood_tracker?parseTime=true&loc=Local"
+
+	// Загружаем .env файл
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Ошибка загрузки .env файла")
+	}
+
+	// Получаем данные из .env
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbName := os.Getenv("DB_NAME")
+
+	serverPort := os.Getenv("SERVER_PORT")
+
+	// Формируем строку подключения
+	dsn := fmt.Sprintf(
+		"%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=Local",
+		dbUser,
+		dbPassword,
+		dbHost,
+		dbPort,
+		dbName,
+	)
+
+	// Подключение к базе данных
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatal("Ошибка подключения к БД:", err)
@@ -30,22 +57,23 @@ func main() {
 		log.Fatal("База данных недоступна:", err)
 	}
 
-	// 2. Инициализация репозитория и окружения хендлеров
+	log.Println("✅ Подключение к БД успешно")
+
+	// Инициализация репозитория и окружения хендлеров
 	repo := repository.NewMoodRepository(db)
 	env := &handlers.Env{Repo: repo}
 
-	// 3. Настройка маршрутов
+	// Настройка маршрутов
 	mux := http.NewServeMux()
 
 	// Регистрация и логин
 	mux.HandleFunc("/api/register", corsMiddleware(env.RegisterHandler))
 	mux.HandleFunc("/api/login", corsMiddleware(env.LoginHandler))
 
-	// Работа с настроением и мемами
-	mux.HandleFunc("/api/logs", corsMiddleware(env.GetMoodsHandler))
-	mux.HandleFunc("/api/logs/save", corsMiddleware(env.CreateMoodHandler))
-	mux.HandleFunc("/api/search", corsMiddleware(env.SearchHandler))
-	mux.HandleFunc("/api/support", corsMiddleware(env.GetSupportContent))
+	// Работа с настроением (MOODS — новая структура API)
+	mux.HandleFunc("/api/moods", corsMiddleware(env.MoodsHandler))         // GET + POST
+	mux.HandleFunc("/api/moods/search", corsMiddleware(env.SearchHandler)) // поиск по заметкам
+	mux.HandleFunc("/api/support", corsMiddleware(env.GetSupportContent))  // мемы (оставляем как есть)
 
 	// Статистика
 	mux.HandleFunc("/api/stats", corsMiddleware(env.GetStatsHandler))
@@ -64,19 +92,25 @@ func main() {
 			http.Error(w, "Team ID is missing", http.StatusBadRequest)
 			return
 		}
+
 		fmt.Printf("Пользователь вступает в команду: %s\n", teamID)
-		http.Redirect(w, r, "http://127.0.0.1:5500/pages/team.html?joined="+teamID, http.StatusSeeOther)
+
+		http.Redirect(
+			w,
+			r,
+			"http://127.0.0.1:5500/pages/team.html?joined="+teamID,
+			http.StatusSeeOther,
+		)
 	}))
 
-	// Раздача статических файлов (твоих мемов)
-	// Создай папку assets в корне проекта BACKEND и положи мемы туда
+	// Раздача статических файлов
 	fs := http.FileServer(http.Dir("./assets"))
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fs))
 
 	mux.HandleFunc("/api/ping", corsMiddleware(env.PingHandler))
 	mux.HandleFunc("/", corsMiddleware(env.NotFoundHandler))
 
-	// Фоновый процесс (заглушка для уведомлений)
+	// Фоновый процесс
 	go func() {
 		for {
 			_ = time.Now().Format("15:04")
@@ -84,13 +118,15 @@ func main() {
 		}
 	}()
 
-	log.Println("✅ Сервер запущен на http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	log.Printf("✅ Сервер запущен на http://localhost:%s", serverPort)
+
+	log.Fatal(http.ListenAndServe(":"+serverPort, mux))
 }
 
 // corsMiddleware для обработки кросс-доменных запросов
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -101,6 +137,7 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		log.Printf("[%s] %s", r.Method, r.URL.Path)
+
 		next(w, r)
 	}
 }
