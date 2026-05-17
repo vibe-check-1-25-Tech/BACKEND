@@ -70,3 +70,5 @@ URL: http://localhost:8080/api/logs/save
 БД: MySQL (порт 3307)
 
 Инструменты: MySQL Workbench, Postman, VS Code
+
+
