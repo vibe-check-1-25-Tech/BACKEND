@@ -71,7 +71,18 @@ func main() {
 	mux.HandleFunc("/api/login", corsMiddleware(env.LoginHandler))
 
 	// Работа с настроением (MOODS — новая структура API)
-	mux.HandleFunc("/api/moods", corsMiddleware(env.MoodsHandler))         // GET + POST
+	mux.HandleFunc("/api/moods", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			env.GetMoodsHandler(w, r)
+
+		case http.MethodPost:
+			env.CreateMoodHandler(w, r)
+
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	}))                                                                    // GET + POST
 	mux.HandleFunc("/api/moods/search", corsMiddleware(env.SearchHandler)) // поиск по заметкам
 	mux.HandleFunc("/api/support", corsMiddleware(env.GetSupportContent))  // мемы (оставляем как есть)
 
